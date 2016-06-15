@@ -3,21 +3,18 @@ package main
 import (
 	"bytes"
 	"crypto/tls"
-	//"encoding/xml"
 	"encoding/csv"
+	"errors"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
-	//"io/ioutil"
 	"io"
 	"net/http"
-	//"net/url"
 	"os"
-	"strings"
-	"strconv"
-	"time"
-	"errors"
 	"sort"
+	"strconv"
+	"strings"
+	"time"
 )
 
 const (
@@ -97,6 +94,26 @@ func (ms Metrics) FilterOffenders(condition string, warn, crit float64) (o, w, c
 	return o, w, c
 }
 
+func (ms Metrics) Max() float64 {
+	var max float64
+	for i := range ms {
+		if ms[i].Value > max {
+			max = ms[i].Value
+		}
+	}
+	return max
+}
+
+func (ms Metrics) Min() float64 {
+	min := ms.Max()
+	for i := range ms {
+		if ms[i].Value < min {
+			min = ms[i].Value
+		}
+	}
+	return min
+}
+
 func (ms Metrics) Avg() float64 {
 	l := len(ms)
 	if l == 0 {
@@ -109,9 +126,11 @@ func (ms Metrics) Avg() float64 {
 	return total/float64(l)
 }
 
-// We need to filter when using wildcards, so that we only get the latest value for each key.
-// Maybe use a hashmap with metric as key, sort that on timestamp and map back....
-func (ms Metrics) Latest() {
+func (m *Metric) Latest(nm *Metric) *Metric {
+	if m.TS.After(nm.TS) {
+		return m
+	}
+	return nm
 }
 
 // Implement the sort interface for Metrics. Sort on Value field
@@ -206,6 +225,7 @@ func parse(url string, chRes chan GraphiteResponse) {
 
 	defer resp.Body.Close()
 	rdr := csv.NewReader(resp.Body)
+	mmap := make(map[string]*Metric) // used for filtering 
 
 	for {
 		rec, err := rdr.Read()
@@ -223,7 +243,17 @@ func parse(url string, chRes chan GraphiteResponse) {
 			continue
 		}
 		//log.Debugf("%+v", m)
-		gr.MS = append(gr.MS, m)
+		cm, ok := mmap[m.Path]
+		if ok {
+			mmap[m.Path] = m.Latest(cm) // replace existing metric with current, if newer
+		} else {
+			mmap[m.Path] = m // first hit, init
+		}
+	}
+
+	// copy unique metrics from map to struct
+	for i := range mmap {
+		gr.MS = append(gr.MS, mmap[i])
 	}
 
 	chRes <- gr

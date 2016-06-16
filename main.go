@@ -327,6 +327,7 @@ func run_check(c *cli.Context) {
 	chRes := make(chan GraphiteResponse)
 	defer close(chRes)
 
+	// run in parallell
 	go parse(url, chRes)
 
 	select {
@@ -335,12 +336,51 @@ func run_check(c *cli.Context) {
 			fmt.Printf("%s: Error parsing result: %q", S_CRITICAL, res.Err)
 			os.Exit(E_CRITICAL)
 		}
+
 		align := res.MS.LongestKey()
 		o, w, c := res.MS.FilterOffenders(condition, warn, crit)
 		lo := long_output(o, w, c, align)
 		nc := len(c)
 		nw := len(w)
 		no := len(o)
+
+		// saving all values in a map to avoid running each calculation more than once
+		const (
+			K_A string = "avg"
+			K_U string = "upper"
+			K_L string = "lower"
+		)
+		vals := make(map[string]map[string]float64)
+		vals["c"] = make(map[string]float64)
+		vals["c"][K_A] = c.Avg()
+		vals["c"][K_L] = c.Min()
+		vals["c"][K_U] = c.Max()
+		vals["w"] = make(map[string]float64)
+		vals["w"][K_A] = w.Avg()
+		vals["w"][K_L] = w.Min()
+		vals["w"][K_U] = w.Max()
+		vals["o"] = make(map[string]float64)
+		vals["o"][K_A] = o.Avg()
+		vals["o"][K_L] = o.Min()
+		vals["o"][K_U] = o.Max()
+
+		// helper func
+		genperf := func(ecode int) string {
+			perf_tmpl := "|value=%f;%f;%f;%f;%f, num_matching_metrics=%d, response_time=%fs;%f;%f"
+			var str string
+			rt_warn := tmout / 2 // we don't really have a warning level for timeout, but only for the sake of perf output
+			switch ecode {
+			case E_CRITICAL:
+				str = fmt.Sprintf(perf_tmpl, vals["c"][K_A], warn, crit, vals["c"][K_L], vals["c"][K_U], nc, res.RT, rt_warn, tmout)
+			case E_WARNING:
+				str = fmt.Sprintf(perf_tmpl, vals["w"][K_A], warn, crit, vals["w"][K_L], vals["w"][K_U], nw, res.RT, rt_warn, tmout)
+			case E_OK:
+				str = fmt.Sprintf(perf_tmpl, vals["o"][K_A], warn, crit, vals["o"][K_L], vals["o"][K_U], no, res.RT, rt_warn, tmout)
+			default:
+				str = fmt.Sprintf(perf_tmpl, 0.0, warn, crit, 0.0, 0.0, 0, res.RT, rt_warn, tmout)
+			}
+			return str
+		}
 
 		// helper func
 		nagios_result := func(ecode int) {
@@ -350,19 +390,21 @@ func run_check(c *cli.Context) {
 			} else {
 				dw = "above"
 			}
-			msg_tmpl := "%d metrics are %s the %s threshold of %.02f"
+			msg_tmpl := "%d metrics are %s the %s threshold of %.02f %s"
 			var msg, status string
 			if ecode == E_CRITICAL {
 				status = S_CRITICAL
-				msg = fmt.Sprintf(msg_tmpl, nc, dw, strings.ToLower(S_CRITICAL), crit)
+				//perfdata := fmt.Sprintf(perf_tmpl, )
+				msg = fmt.Sprintf(msg_tmpl, nc, dw, strings.ToLower(S_CRITICAL), crit, genperf(ecode))
 			}
 			if ecode == E_WARNING {
 				status = S_WARNING
-				msg = fmt.Sprintf(msg_tmpl, nw, dw, strings.ToLower(S_WARNING), warn)
+				msg = fmt.Sprintf(msg_tmpl, nw, dw, strings.ToLower(S_WARNING), warn, genperf(ecode))
 			}
 			if ecode == E_OK {
 				status = S_OK
-				msg = fmt.Sprintf("Jolly good! %d metrics at %f on average :)", no, o.Avg())
+				msg = fmt.Sprintf("Jolly good! %d metrics at %.02f on average, min: %.02f, max: %.02f %s",
+					no, vals["o"][K_A], vals["o"][K_L], vals["o"][K_U], genperf(ecode))
 			}
 			if ecode == E_UNKNOWN {
 				status = S_UNKNOWN
@@ -372,6 +414,7 @@ func run_check(c *cli.Context) {
 			os.Exit(ecode)
 		}
 
+		// evaluate, print and exit
 		if nc > 0 {
 			nagios_result(E_CRITICAL)
 		}
@@ -423,15 +466,15 @@ func main() {
 			Usage: "Timeperiod for selection",
 		},
 		cli.Float64Flag{
-			Name: "warning, w",
+			Name:  "warning, w",
 			Usage: "Response time to result in WARNING status, in seconds",
 		},
 		cli.Float64Flag{
-			Name: "critical, c",
+			Name:  "critical, c",
 			Usage: "Response time to result in CRITICAL status, in seconds",
 		},
 		cli.StringFlag{
-			Name: "if, i",
+			Name:  "if, i",
 			Value: CMP_GT,
 			Usage: "Set whether to trigger on values being less than (lt) or greater than (gt) thresholds",
 		},

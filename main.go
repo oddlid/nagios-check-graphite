@@ -260,7 +260,7 @@ func parse(url string, chRes chan GraphiteResponse) {
 			gr.Err = err
 			break
 		}
-		//log.Debugf("%#v", rec)
+		log.Debugf("%#v", rec)
 		m, err := NewMetricFromCSV(rec)
 		if err != nil {
 			log.Debug(err)
@@ -369,6 +369,7 @@ func run_check(c *cli.Context) {
 			perf_tmpl := "|value=%f;%f;%f;%f;%f, num_matching_metrics=%d, response_time=%fs;%f;%f"
 			rt_warn := tmout / 2 // we don't really have a warning level for timeout, but only for the sake of perf output
 			var str string
+			// helper in helper func
 			_fmt := func(key string, count int) string {
 				return fmt.Sprintf(perf_tmpl, vals[key][K_A], warn, crit,
 					vals[key][K_L], vals[key][K_U], count, res.RT, rt_warn, tmout)

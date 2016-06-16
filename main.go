@@ -57,12 +57,12 @@ type GraphiteResponse struct {
 
 // Run debugging with not-so-light function calls through this, to avoid running
 // it at all if not at debug level
-func _debug(f func()) {
-	lvl := log.GetLevel()
-	if lvl == log.DebugLevel {
-		f()
-	}
-}
+//func _debug(f func()) {
+//	lvl := log.GetLevel()
+//	if lvl == log.DebugLevel {
+//		f()
+//	}
+//}
 
 // LongestKey() finds the longest metric name in a slice
 func (ms Metrics) LongestKey() int {

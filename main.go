@@ -18,24 +18,25 @@ import (
 )
 
 const (
-	VERSION    string  = "2016-06-15"
-	UA         string  = "VGT MnM GraphiteChecker/1.0"
-	DEF_TMOUT  float64 = 10.0
-	DEF_PROT   string  = "http"
-	DEF_ADR    string  = "graphite.wirelesscar.net"
-	DEF_PERIOD string  = "301s"
-	DEF_PORT   int     = 80
-	URL_TMPL   string  = "%s://%s:%d/render?target=%s&amp;format=csv&amp;from=-%s"
-	CMP_LT     string  = "lt"
-	CMP_GT     string  = "gt"
-	S_OK       string  = "OK"
-	S_WARNING  string  = "WARNING"
-	S_CRITICAL string  = "CRITICAL"
-	S_UNKNOWN  string  = "UNKNOWN"
-	E_OK       int     = 0
-	E_WARNING  int     = 1
-	E_CRITICAL int     = 2
-	E_UNKNOWN  int     = 3
+	VERSION      string  = "2016-06-16"
+	UA           string  = "VGT MnM GraphiteChecker/1.0"
+	DEF_TMOUT    float64 = 10.0
+	DEF_PROT     string  = "http"
+	DEF_ADR      string  = "graphite.wirelesscar.net"
+	DEF_PERIOD   string  = "301s"
+	DEF_PORT     int     = 80
+	URL_TMPL     string  = "%s://%s:%d/render?target=%s&amp;format=csv&amp;from=-%s"
+	CMP_LT       string  = "lt"
+	CMP_GT       string  = "gt"
+	G_DATEFORMAT string  = "2006-01-02 15:04:05"
+	S_OK         string  = "OK"
+	S_WARNING    string  = "WARNING"
+	S_CRITICAL   string  = "CRITICAL"
+	S_UNKNOWN    string  = "UNKNOWN"
+	E_OK         int     = 0
+	E_WARNING    int     = 1
+	E_CRITICAL   int     = 2
+	E_UNKNOWN    int     = 3
 )
 
 // Note that TS and Value have switched order here compared the format one uses for posting TO Graphite
@@ -63,6 +64,7 @@ func _debug(f func()) {
 	}
 }
 
+// LongestKey() finds the longest metric name in a slice
 func (ms Metrics) LongestKey() int {
 	var l int
 	for i := range ms {
@@ -74,12 +76,14 @@ func (ms Metrics) LongestKey() int {
 	return l
 }
 
+// Dump() prettyprints a slice of metrics
 func (ms Metrics) Dump(w io.Writer, ralign int) {
 	for i := range ms {
 		fmt.Fprintf(w, fmt.Sprintf("%s%d%s", "%-", ralign, "s % 12.4f %d\n"), ms[i].Path, ms[i].Value, ms[i].TS.Unix())
 	}
 }
 
+// FilterOffenders() splits a slice of metrics into 3 new slices based on values in regard to thresholds
 func (ms Metrics) FilterOffenders(condition string, warn, crit float64) (o, w, c Metrics) {
 	o = Metrics{} // those in OK state
 	w = Metrics{} // those in WARNING state
@@ -105,6 +109,7 @@ func (ms Metrics) FilterOffenders(condition string, warn, crit float64) (o, w, c
 	return o, w, c
 }
 
+// Max() returns the highest value in a slice of metrics
 func (ms Metrics) Max() float64 {
 	var max float64
 	for i := range ms {
@@ -115,6 +120,7 @@ func (ms Metrics) Max() float64 {
 	return max
 }
 
+// Min() returns the lowest values in a slice of metrics
 func (ms Metrics) Min() float64 {
 	min := ms.Max()
 	for i := range ms {
@@ -125,6 +131,7 @@ func (ms Metrics) Min() float64 {
 	return min
 }
 
+// Avg() returns the average value of all values in a slice of metrics
 func (ms Metrics) Avg() float64 {
 	l := len(ms)
 	if l == 0 {
@@ -137,6 +144,7 @@ func (ms Metrics) Avg() float64 {
 	return total/float64(l)
 }
 
+// Latest() returns the latest/newest of 2 metrics based on its timestamp field
 func (m *Metric) Latest(nm *Metric) *Metric {
 	if m.TS.After(nm.TS) {
 		return m
@@ -159,6 +167,7 @@ func (ms Metrics) Less(i, j int) bool {
 }
 
 
+// NewMetric() creates a new Metric and return its pointer
 func NewMetric(path string, ts time.Time, val float64) *Metric {
 	return &Metric{
 		Path:  path,
@@ -167,6 +176,7 @@ func NewMetric(path string, ts time.Time, val float64) *Metric {
 	}
 }
 
+// NewMetricFromCSV() takes a CSV record/line and tries to parse it into a *Metric
 func NewMetricFromCSV(csv []string) (*Metric, error) {
 	if len(csv) != 3 {
 		return nil, errors.New("CSV record length != 3")
@@ -179,14 +189,13 @@ func NewMetricFromCSV(csv []string) (*Metric, error) {
 	//log.Debugf("CSV date string: %s\n", csv[1])
 	// See: http://stackoverflow.com/questions/14106541/go-parsing-date-time-strings-which-are-not-standard-formats
 	// for an explantion of how to get date formats recognized by Go
-	const graphiteTimeFormat string = "2006-01-02 15:04:05"
-	ts, err := time.Parse(graphiteTimeFormat, csv[1])
+	ts, err := time.Parse(G_DATEFORMAT, csv[1])
 	if err != nil {
 		return nil, err
 	}
-	// verify val
+	// verify value
 	if csv[2] == "" {
-		return nil, errors.New("Empty timestamp field")
+		return nil, errors.New("Empty value field")
 	}
 	val, err := strconv.ParseFloat(csv[2], 64)
 	if err != nil {
@@ -196,6 +205,7 @@ func NewMetricFromCSV(csv []string) (*Metric, error) {
 	return NewMetric(csv[0], ts, val), nil
 }
 
+// checkIf() checks if a value is less than or bigger than a threshold based on condition/direction parameter
 func checkIf(condition string, val, threshold float64) bool {
 	if condition == CMP_GT {
 		return val >= threshold
@@ -203,6 +213,7 @@ func checkIf(condition string, val, threshold float64) bool {
 	return val <= threshold
 }
 
+// geturl() fetches a URL and returns the HTTP response
 func geturl(url string) (*http.Response, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -222,6 +233,8 @@ func geturl(url string) (*http.Response, error) {
 	return client.Do(req)
 }
 
+// parse() reads a http response and converts it from CSV to Metrics if successful
+// Designed to run in a separate goroutine, and hence uses a result channel instead or returning anything
 func parse(url string, chRes chan GraphiteResponse) {
 	gr := GraphiteResponse{}
 	t_start := time.Now()
@@ -253,7 +266,7 @@ func parse(url string, chRes chan GraphiteResponse) {
 			log.Debug(err)
 			continue
 		}
-		//log.Debugf("%+v", m)
+
 		cm, ok := mmap[m.Path]
 		if ok {
 			mmap[m.Path] = m.Latest(cm) // replace existing metric with current, if newer
@@ -270,6 +283,7 @@ func parse(url string, chRes chan GraphiteResponse) {
 	chRes <- gr
 }
 
+// long_output() pretty prints 3 metric slices for usage in op5 long output on extinfo page
 func long_output(o, w, c Metrics, align int) string {
 	var buf bytes.Buffer
 	if len(c) > 0 {
@@ -290,6 +304,7 @@ func long_output(o, w, c Metrics, align int) string {
 	return buf.String()
 }
 
+// run_check() takes the CLI params and glue together all logic in the program
 func run_check(c *cli.Context) {
 	prot := c.String("protocol")
 	host := c.String("hostname")
@@ -327,6 +342,7 @@ func run_check(c *cli.Context) {
 		nw := len(w)
 		no := len(o)
 
+		// helper func
 		nagios_result := func(ecode int) {
 			var dw string // "direction word"
 			if condition == CMP_LT {
@@ -381,7 +397,6 @@ func main() {
 	app.Email = "odd.ebbesen@wirelesscar.com"
 	app.Usage = "Check Graphite values and alert in Nagios/op5"
 
-	//...
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
 			Name:  "hostname, H",
@@ -409,12 +424,10 @@ func main() {
 		},
 		cli.Float64Flag{
 			Name: "warning, w",
-			//Value: defWarn,
 			Usage: "Response time to result in WARNING status, in seconds",
 		},
 		cli.Float64Flag{
 			Name: "critical, c",
-			//Value: defCrit,
 			Usage: "Response time to result in CRITICAL status, in seconds",
 		},
 		cli.StringFlag{

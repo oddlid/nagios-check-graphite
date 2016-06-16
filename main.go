@@ -270,22 +270,19 @@ func parse(url string, chRes chan GraphiteResponse) {
 	chRes <- gr
 }
 
-func long_output(o, w, c Metrics) string {
+func long_output(o, w, c Metrics, align int) string {
 	var buf bytes.Buffer
 	if len(c) > 0 {
-		align := c.LongestKey()
 		fmt.Fprintf(&buf, "===> Metrics in state %s:\n", S_CRITICAL)
 		c.Dump(&buf, align)
 		fmt.Fprintf(&buf, "\n")
 	}
 	if len(w) > 0 {
-		align := w.LongestKey()
 		fmt.Fprintf(&buf, "===> Metrics in state %s:\n", S_WARNING)
 		w.Dump(&buf, align)
 		fmt.Fprintf(&buf, "\n")
 	}
 	if len(o) > 0 {
-		align := o.LongestKey()
 		fmt.Fprintf(&buf, "===> Metrics in state %s:\n", S_OK)
 		o.Dump(&buf, align)
 		fmt.Fprintf(&buf, "\n")
@@ -323,8 +320,9 @@ func run_check(c *cli.Context) {
 			fmt.Printf("%s: Error parsing result: %q", S_CRITICAL, res.Err)
 			os.Exit(E_CRITICAL)
 		}
+		align := res.MS.LongestKey()
 		o, w, c := res.MS.FilterOffenders(condition, warn, crit)
-		lo := long_output(o, w, c)
+		lo := long_output(o, w, c, align)
 		nc := len(c)
 		nw := len(w)
 		no := len(o)

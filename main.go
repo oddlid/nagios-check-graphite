@@ -63,9 +63,20 @@ func _debug(f func()) {
 	}
 }
 
-func (ms Metrics) Dump(w io.Writer) {
+func (ms Metrics) LongestKey() int {
+	var l int
 	for i := range ms {
-		fmt.Fprintf(w, "%s %.02f %d\n", ms[i].Path, ms[i].Value, ms[i].TS.Unix())
+		tmpl := len(ms[i].Path)
+		if tmpl > l {
+			l = tmpl
+		}
+	}
+	return l
+}
+
+func (ms Metrics) Dump(w io.Writer, ralign int) {
+	for i := range ms {
+		fmt.Fprintf(w, fmt.Sprintf("%s%d%s", "%-", ralign, "s % 12.4f %d\n"), ms[i].Path, ms[i].Value, ms[i].TS.Unix())
 	}
 }
 
@@ -262,18 +273,21 @@ func parse(url string, chRes chan GraphiteResponse) {
 func long_output(o, w, c Metrics) string {
 	var buf bytes.Buffer
 	if len(c) > 0 {
+		align := c.LongestKey()
 		fmt.Fprintf(&buf, "===> Metrics in state %s:\n", S_CRITICAL)
-		c.Dump(&buf)
+		c.Dump(&buf, align)
 		fmt.Fprintf(&buf, "\n")
 	}
 	if len(w) > 0 {
+		align := w.LongestKey()
 		fmt.Fprintf(&buf, "===> Metrics in state %s:\n", S_WARNING)
-		w.Dump(&buf)
+		w.Dump(&buf, align)
 		fmt.Fprintf(&buf, "\n")
 	}
 	if len(o) > 0 {
+		align := o.LongestKey()
 		fmt.Fprintf(&buf, "===> Metrics in state %s:\n", S_OK)
-		o.Dump(&buf)
+		o.Dump(&buf, align)
 		fmt.Fprintf(&buf, "\n")
 	}
 	return buf.String()

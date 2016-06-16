@@ -367,15 +367,19 @@ func run_check(c *cli.Context) {
 		// helper func
 		genperf := func(ecode int) string {
 			perf_tmpl := "|value=%f;%f;%f;%f;%f, num_matching_metrics=%d, response_time=%fs;%f;%f"
-			var str string
 			rt_warn := tmout / 2 // we don't really have a warning level for timeout, but only for the sake of perf output
+			var str string
+			_fmt := func(key string, count int) string {
+				return fmt.Sprintf(perf_tmpl, vals[key][K_A], warn, crit,
+					vals[key][K_L], vals[key][K_U], count, res.RT, rt_warn, tmout)
+			}
 			switch ecode {
 			case E_CRITICAL:
-				str = fmt.Sprintf(perf_tmpl, vals["c"][K_A], warn, crit, vals["c"][K_L], vals["c"][K_U], nc, res.RT, rt_warn, tmout)
+				str = _fmt("c", nc)
 			case E_WARNING:
-				str = fmt.Sprintf(perf_tmpl, vals["w"][K_A], warn, crit, vals["w"][K_L], vals["w"][K_U], nw, res.RT, rt_warn, tmout)
+				str = _fmt("w", nw)
 			case E_OK:
-				str = fmt.Sprintf(perf_tmpl, vals["o"][K_A], warn, crit, vals["o"][K_L], vals["o"][K_U], no, res.RT, rt_warn, tmout)
+				str = _fmt("o", no)
 			default:
 				str = fmt.Sprintf(perf_tmpl, 0.0, warn, crit, 0.0, 0.0, 0, res.RT, rt_warn, tmout)
 			}
@@ -394,7 +398,6 @@ func run_check(c *cli.Context) {
 			var msg, status string
 			if ecode == E_CRITICAL {
 				status = S_CRITICAL
-				//perfdata := fmt.Sprintf(perf_tmpl, )
 				msg = fmt.Sprintf(msg_tmpl, nc, dw, strings.ToLower(S_CRITICAL), crit, genperf(ecode))
 			}
 			if ecode == E_WARNING {

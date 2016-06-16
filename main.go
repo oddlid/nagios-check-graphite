@@ -407,12 +407,13 @@ func run_check(c *cli.Context) {
 			}
 			if ecode == E_OK {
 				status = S_OK
-				msg = fmt.Sprintf("Jolly good! %d metrics at %.02f on average, min: %.02f, max: %.02f %s",
+				msg = fmt.Sprintf("%d metrics at %.02f on average, min: %.02f, max: %.02f %s",
 					no, vals["o"][K_A], vals["o"][K_L], vals["o"][K_U], genperf(ecode))
 			}
 			if ecode == E_UNKNOWN {
 				status = S_UNKNOWN
-				msg = "Something strange is going on, in the neighbourhood, who you gonna call?"
+				//msg = fmt.Sprintf("There's something strange in your neighbourhood, who ya gonna call?%s", genperf(ecode))
+				msg = fmt.Sprintf("No values in Graphite within %s range!%s", period, genperf(ecode))
 			}
 			fmt.Printf("%s: %s\n\n%s", status, msg, lo)
 			os.Exit(ecode)

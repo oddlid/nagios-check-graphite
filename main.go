@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
-	"github.com/codegangsta/cli"
+	"github.com/urfave/cli" // renamed from codegansta
 	"io"
 	"net/http"
 	"os"
@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	VERSION      string  = "2016-06-16"
+	VERSION      string  = "2016-06-17"
 	UA           string  = "VGT MnM GraphiteChecker/1.0"
 	DEF_TMOUT    float64 = 10.0
 	DEF_PROT     string  = "http"
@@ -366,7 +366,7 @@ func run_check(c *cli.Context) {
 
 		// helper func
 		genperf := func(ecode int) string {
-			perf_tmpl := "|value=%f;%f;%f;%f;%f, num_matching_metrics=%d, response_time=%fs;%f;%f"
+			perf_tmpl := "|value=%f;%f;%f;%f;%f response_time=%fs;%f;%f num_matching_metrics=%d"
 			rt_warn := tmout / 2 // we don't really have a warning level for timeout, but only for the sake of perf output
 			var str string
 			// helper in helper func

@@ -366,13 +366,13 @@ func run_check(c *cli.Context) {
 
 		// helper func
 		genperf := func(ecode int) string {
-			perf_tmpl := "|value=%f;%f;%f;%f;%f response_time=%fs;%f;%f num_matching_metrics=%d"
+			perf_tmpl := "|value=%f;%f;%f;%f;%f response_time=%fs;%f;%f; num_matching_metrics=%d;"
 			rt_warn := tmout / 2 // we don't really have a warning level for timeout, but only for the sake of perf output
 			var str string
 			// helper in helper func
 			_fmt := func(key string, count int) string {
 				return fmt.Sprintf(perf_tmpl, vals[key][K_A], warn, crit,
-					vals[key][K_L], vals[key][K_U], count, res.RT, rt_warn, tmout)
+					vals[key][K_L], vals[key][K_U], res.RT, rt_warn, tmout, count)
 			}
 			switch ecode {
 			case E_CRITICAL:

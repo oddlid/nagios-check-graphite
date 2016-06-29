@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	VERSION      string  = "2016-06-17"
+	VERSION      string  = "2016-06-29"
 	UA           string  = "VGT MnM GraphiteChecker/1.0"
 	DEF_TMOUT    float64 = 10.0
 	DEF_PROT     string  = "http"
@@ -382,7 +382,7 @@ func run_check(c *cli.Context) {
 			case E_OK:
 				str = _fmt("o", no)
 			default:
-				str = fmt.Sprintf(perf_tmpl, 0.0, warn, crit, 0.0, 0.0, 0, res.RT, rt_warn, tmout)
+				str = fmt.Sprintf(perf_tmpl, 0.0, warn, crit, 0.0, 0.0, res.RT, rt_warn, tmout, 0)
 			}
 			return str
 		}

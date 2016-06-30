@@ -9,6 +9,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/urfave/cli" // renamed from codegansta
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"sort"
@@ -18,13 +19,15 @@ import (
 )
 
 const (
-	VERSION      string  = "2016-06-29"
+	VERSION      string  = "2016-06-30"
 	UA           string  = "VGT MnM GraphiteChecker/1.0"
 	DEF_TMOUT    float64 = 10.0
 	DEF_PROT     string  = "http"
 	DEF_ADR      string  = "graphite.wirelesscar.net"
 	DEF_PERIOD   string  = "301s"
 	DEF_PORT     int     = 80
+	URL_ATMPL    string  = "%s://%s:%d"                                    // address template
+	URL_PTMPL    string  = "/render?target=%s&amp;format=csv&amp;from=-%s" // path template
 	URL_TMPL     string  = "%s://%s:%d/render?target=%s&amp;format=csv&amp;from=-%s"
 	CMP_LT       string  = "lt"
 	CMP_GT       string  = "gt"
@@ -141,7 +144,7 @@ func (ms Metrics) Avg() float64 {
 	for i := range ms {
 		total += ms[i].Value
 	}
-	return total/float64(l)
+	return total / float64(l)
 }
 
 // Latest() returns the latest/newest of 2 metrics based on its timestamp field
@@ -165,7 +168,6 @@ func (ms Metrics) Swap(i, j int) {
 func (ms Metrics) Less(i, j int) bool {
 	return ms[i].Value < ms[j].Value
 }
-
 
 // NewMetric() creates a new Metric and return its pointer
 func NewMetric(path string, ts time.Time, val float64) *Metric {
@@ -249,7 +251,7 @@ func parse(url string, chRes chan GraphiteResponse) {
 
 	defer resp.Body.Close()
 	rdr := csv.NewReader(resp.Body)
-	mmap := make(map[string]*Metric) // used for filtering 
+	mmap := make(map[string]*Metric) // used for filtering
 
 	for {
 		rec, err := rdr.Read()
@@ -306,9 +308,10 @@ func long_output(o, w, c Metrics, align int) string {
 
 // run_check() takes the CLI params and glue together all logic in the program
 func run_check(c *cli.Context) {
+	urlprefix := c.String("urlprefix")
 	prot := c.String("protocol")
 	host := c.String("hostname")
-	port := c.Int("port")
+	port := c.Uint64("port")
 	mpath := c.String("metricpath")
 	period := c.String("timeperiod")
 	tmout := c.Float64("timeout")
@@ -320,9 +323,29 @@ func run_check(c *cli.Context) {
 		condition = CMP_LT
 	}
 
-	url := fmt.Sprintf(URL_TMPL, prot, host, port, mpath, period)
+	var url string
+	if urlprefix != "" {
+		log.Debugf("Using URL prefix %q", urlprefix)
+		url = fmt.Sprintf(urlprefix+URL_PTMPL, mpath, period)
+	} else {
+		log.Debug("No URL prefix, trying to parse other params")
+		if strings.Index(host, ":") >= 0 {
+			log.Debugf("Found port spec in host spec: %q", host)
+			s_host, s_port, err := net.SplitHostPort(host)
+			if err != nil {
+				log.Fatalf("Please check your host specification: %v", err)
+			}
+			host = s_host
+			port, err = strconv.ParseUint(s_port, 10, 16)
+			if err != nil {
+				log.Fatalf("Unable to parse port: %v", err)
+			}
+		}
+		url = fmt.Sprintf(URL_TMPL, prot, host, port, mpath, period)
+	}
 
 	log.Debugf("URL: %s\n", url)
+	//log.Fatal("Debug abort\n")
 
 	chRes := make(chan GraphiteResponse)
 	defer close(chRes)
@@ -460,6 +483,11 @@ func main() {
 			Name:  "protocol, P",
 			Value: DEF_PROT,
 			Usage: "Protocol to use (http or https)",
+		},
+		cli.StringFlag{
+			Name: "urlprefix, U",
+			//Value: fmt.Sprintf("%s://%s:%d", DEF_PROT, DEF_ADR, DEF_PORT),
+			Usage: "URL prefix to Graphite in the form of PROT://ADR:PORT/PREFIX",
 		},
 		cli.StringFlag{
 			Name:  "metricpath, m",

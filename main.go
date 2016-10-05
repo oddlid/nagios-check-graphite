@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	VERSION      string  = "2016-07-05"
+	VERSION      string  = "2016-10-05"
 	UA           string  = "VGT MnM GraphiteChecker/1.0"
 	DEF_TMOUT    float64 = 10.0
 	DEF_PROT     string  = "http"
@@ -440,7 +440,7 @@ func run_check(c *cli.Context) {
 				msg = fmt.Sprintf("No values in Graphite within %s range!%s", period, genperf(ecode))
 			}
 			fmt.Printf("%s: %s\n\n%s", status, msg, lo)
-			if unok {
+			if unok && ecode == E_UNKNOWN {
 				os.Exit(E_OK)
 			} else {
 				os.Exit(ecode)
@@ -532,7 +532,7 @@ func main() {
 			EnvVar: "CHECK_GRAPHITE_DEBUG",
 		},
 		cli.BoolFlag{
-			Name: "ok-exit, o",
+			Name:  "ok-exit, o",
 			Usage: "Exit with status OK when no values found (otherwise UNKNOWN)",
 		},
 	}

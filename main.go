@@ -318,7 +318,7 @@ func run_check(c *cli.Context) {
 	condition := c.String("if")
 	warn := c.Float64("warning")
 	crit := c.Float64("critical")
-	unok := c.Bool("ok-exit")
+	unok := c.Bool("unknown-ok")
 
 	if condition != CMP_GT {
 		condition = CMP_LT
@@ -532,7 +532,7 @@ func main() {
 			EnvVar: "CHECK_GRAPHITE_DEBUG",
 		},
 		cli.BoolFlag{
-			Name:  "ok-exit, o",
+			Name:  "unknown-ok, u",
 			Usage: "Exit with status OK when no values found (otherwise UNKNOWN)",
 		},
 	}

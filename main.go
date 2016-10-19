@@ -505,11 +505,11 @@ func main() {
 		},
 		cli.Float64Flag{
 			Name:  "warning, w",
-			Usage: "Response time to result in WARNING status, in seconds",
+			Usage: "Value to result in WARNING status",
 		},
 		cli.Float64Flag{
 			Name:  "critical, c",
-			Usage: "Response time to result in CRITICAL status, in seconds",
+			Usage: "Value to result in CRITICAL status",
 		},
 		cli.StringFlag{
 			Name:  "if, i",

@@ -442,8 +442,16 @@ func run_check(c *cli.Context) {
 				msg = fmt.Sprintf("No values in Graphite within %s range!%s", period, genperf(ecode))
 			}
 			fmt.Printf("%s: %s\n\n%s", status, msg, lo)
-			if ecode == E_UNKNOWN && (unok || unwarn || uncrit) {
-				os.Exit(E_OK)
+			if ecode == E_UNKNOWN {
+				if unok {
+					os.Exit(E_OK)
+				} else if unwarn {
+					os.Exit(E_WARNING)
+				} else if uncrit {
+					os.Exit(E_CRITICAL)
+				} else {
+					os.Exit(E_UNKNOWN)
+				}
 			} else {
 				os.Exit(ecode)
 			}

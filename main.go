@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	VERSION      string  = "2016-11-30"
+	VERSION      string  = "2016-12-05"
 	UA           string  = "VGT MnM GraphiteChecker/1.0"
 	DEF_TMOUT    float64 = 10.0
 	DEF_PROT     string  = "http"
@@ -31,6 +31,8 @@ const (
 	URL_TMPL     string  = "%s://%s:%d/render?target=%s&amp;format=csv&amp;from=-%s"
 	CMP_LT       string  = "lt"
 	CMP_GT       string  = "gt"
+	CMP_LE       string  = "le"
+	CMP_GE       string  = "ge"
 	G_DATEFORMAT string  = "2006-01-02 15:04:05"
 	S_OK         string  = "OK"
 	S_WARNING    string  = "WARNING"
@@ -209,10 +211,18 @@ func NewMetricFromCSV(csv []string) (*Metric, error) {
 
 // checkIf() checks if a value is less than or bigger than a threshold based on condition/direction parameter
 func checkIf(condition string, val, threshold float64) bool {
-	if condition == CMP_GT {
+	switch condition {
+	case CMP_LT:
+		return val < threshold
+	case CMP_LE:
+		return val <= threshold
+	case CMP_GE:
 		return val >= threshold
+	case CMP_GT:
+		return val > threshold
+	default:
+		return false
 	}
-	return val <= threshold
 }
 
 // geturl() fetches a URL and returns the HTTP response
@@ -524,7 +534,7 @@ func main() {
 		cli.StringFlag{
 			Name:  "if, i",
 			Value: CMP_GT,
-			Usage: "Set whether to trigger on values being less than (lt) or greater than (gt) thresholds",
+			Usage: "Set whether to trigger on values being less than (lt), less than or equal (le), greater than or equal (ge) or greater than (gt) thresholds",
 		},
 		cli.Float64Flag{
 			Name:  "timeout, t",

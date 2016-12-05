@@ -102,7 +102,7 @@ func (ms Metrics) FilterOffenders(condition string, warn, crit float64) (o, w, c
 			o = append(o, ms[i])
 		}
 	}
-	if condition == CMP_GT {
+	if condition == CMP_GT || condition == CMP_GE {
 		sort.Sort(sort.Reverse(o))
 		sort.Sort(sort.Reverse(w))
 		sort.Sort(sort.Reverse(c))
@@ -272,7 +272,7 @@ func parse(url string, chRes chan GraphiteResponse) {
 			gr.Err = err
 			break
 		}
-		log.Debugf("%#v", rec)
+		log.Debugf("parse(): %#v", rec)
 		m, err := NewMetricFromCSV(rec)
 		if err != nil {
 			log.Debug(err)
@@ -332,7 +332,7 @@ func run_check(c *cli.Context) {
 	unwarn := c.Bool("unknown-warning")
 	uncrit := c.Bool("unknown-critical")
 
-	if condition != CMP_GT {
+	if condition != CMP_GT && condition != CMP_GE && condition != CMP_LE {
 		condition = CMP_LT
 	}
 
@@ -379,6 +379,7 @@ func run_check(c *cli.Context) {
 		nc := len(c)
 		nw := len(w)
 		no := len(o)
+		log.Debugf("#c: %d, #w: %d, #o: %d\n", nc, nw, no)
 
 		// saving all values in a map to avoid running each calculation more than once
 		const (
@@ -428,6 +429,10 @@ func run_check(c *cli.Context) {
 			var dw string // "direction word"
 			if condition == CMP_LT {
 				dw = "below"
+			} else if condition == CMP_LE {
+				dw = "below or equal to"
+			} else if condition == CMP_GE {
+				dw = "above or equal to"
 			} else {
 				dw = "above"
 			}
